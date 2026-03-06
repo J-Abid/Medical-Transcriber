@@ -1,0 +1,18 @@
+[project]
+name = "meddict"
+version = "0.1.0"
+description = "German medical dictation transcriber and structured clinical summary extractor"
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper>=1.1.0",
+    "openai>=1.40.0",
+    "pydantic>=2.0.0",
+    "click>=8.1.0",
+]
+
+[project.scripts]
+meddict = "app.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>meddict — German Medical Dictation → Structured JSON</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #06090f; overflow-x: hidden; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Gradient mesh background */
+    .hero-bg {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-bg::before {
+      content: '';
+      position: absolute;
+      top: -40%; left: -20%;
+      width: 80%; height: 120%;
+      background: radial-gradient(ellipse at center, rgba(16,185,129,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      top: -20%; right: -20%;
+      width: 60%; height: 100%;
+      background: radial-gradient(ellipse at center, rgba(59,130,246,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Smooth fade-in for elements */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Pipeline connector */
+    .pipeline-connector {
+      position: relative;
+    }
+    .pipeline-connector::after {
+      content: '';
+      position: absolute;
+      top: 50%; right: -1.25rem;
+      width: 2.5rem; height: 2px;
+      background: linear-gradient(90deg, #374151, #10b981);
+      transform: translateY(-50%);
+    }
+    @media (max-width: 768px) {
+      .pipeline-connector::after {
+        top: auto; bottom: -1.25rem;
+        right: 50%; left: auto;
+        width: 2px; height: 2.5rem;
+        background: linear-gradient(180deg, #374151, #10b981);
+        transform: translateX(50%);
+      }
+    }
+
+    /* Glowing border on hover */
+    .card-glow {
+      position: relative;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .card-glow:hover {
+      border-color: rgba(16,185,129,0.3);
+      box-shadow: 0 0 30px -10px rgba(16,185,129,0.15);
+    }
+
+    /* Tab underline */
+    .tab-btn {
+      position: relative;
+      padding-bottom: 0.75rem;
+      transition: color 0.2s;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: #10b981;
+      transform: scaleX(0);
+      transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+    }
+    .tab-btn.active { color: #10b981; }
+    .tab-btn.active::after { transform: scaleX(1); }
+
+    /* Code viewer */
+    .file-btn { transition: all 0.15s ease; }
+    .file-btn.active {
+      background: rgba(16,185,129,0.1);
+      color: #6ee7b7;
+      border-left: 2px solid #10b981;
+    }
+    .file-btn:not(.active) { border-left: 2px solid transparent; }
+
+    pre.code-block {
+      counter-reset: line;
+      tab-size: 4;
+    }
+    .code-line {
+      counter-increment: line;
+      display: block;
+      padding: 0 1rem;
+      min-height: 1.375rem;
+      transition: background 0.1s;
+    }
+    .code-line:hover { background: rgba(255,255,255,0.02); }
+    .code-line::before {
+      content: counter(line);
+      display: inline-block;
+      width: 2.5rem;
+      margin-right: 1.25rem;
+      text-align: right;
+      color: #374151;
+      user-select: none;
+      font-size: 0.7rem;
+    }
+
+    /* Terminal animation */
+    .terminal-cursor {
+      display: inline-block;
+      width: 8px; height: 16px;
+      background: #10b981;
+      animation: blink 1s step-end infinite;
+      vertical-align: text-bottom;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* Copy button */
+    .copy-toast {
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 1.2s forwards;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+
+    /* Section divider */
+    .section-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+    /* Nav link */
+    .nav-link {
+      position: relative;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: #d1d5db; }
+    .nav-link.active-nav { color: #10b981; }
+  </style>
+</head>
+<body class="text-gray-400 min-h-screen">
+
+  <!-- ═══════════════════ NAVIGATION ═══════════════════ -->
+  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" style="background: rgba(6,9,15,0.6); backdrop-filter: blur(20px) saturate(180%);">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="flex items-center justify-between h-16">
+        <a href="#top" class="flex items-center gap-3 group">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-900/30 group-hover:shadow-emerald-900/50 transition-shadow">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"/></svg>
+          </div>
+          <span class="text-white font-semibold text-sm tracking-tight">meddict</span>
+        </a>
+
+        <div class="hidden md:flex items-center gap-8 text-sm">
+          <a href="#pipeline" class="nav-link text-gray-500">Pipeline</a>
+          <a href="#demo" class="nav-link text-gray-500">Demo</a>
+          <a href="#source" class="nav-link text-gray-500">Source</a>
+          <a href="#setup" class="nav-link text-gray-500">Setup</a>
+          <a href="#config" class="nav-link text-gray-500">Config</a>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-md bg-white/5 text-[11px] mono text-gray-500 border border-white/5">v0.1.0</span>
+        </div>
+      </div>
+    </div>
+    <div class="section-line"></div>
+  </nav>
+
+  <!-- ═══════════════════ HERO ═══════════════════ -->
+  <section id="top" class="hero-bg pt-32 pb-20 relative">
+    <div class="max-w-6xl mx-auto px-6 relative z-10">
+      <div class="max-w-3xl">
+        <div class="reveal flex items-center gap-2 mb-6">
+          <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20">Python CLI</span>
+          <span class="px-3 py-1 rounded-full bg-white/5 text-gray-500 text-xs font-medium border border-white/5">Docker Ready</span>
+          <span class="px-3 py-1 rounded-full bg-white/5 text-gray-500 text-xs font-medium border border-white/5">Local-first</span>
+        </div>
+
+        <h1 class="reveal text-5xl md:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-6">
+          German Medical Dictation
+          <span class="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent"> → Structured JSON</span>
+        </h1>
+
+        <p class="reveal text-lg text-gray-400 leading-relaxed mb-8 max-w-2xl">
+          Transcribe German medical audio with <span class="text-gray-300">faster-whisper</span>, extract clinical summaries via any <span class="text-gray-300">OpenAI-compatible LLM</span>, and output validated JSON — all from a single CLI command.
+        </p>
+
+        <div class="reveal flex flex-wrap gap-3">
+          <a href="#setup" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors shadow-lg shadow-emerald-900/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/></svg>
+            Get Started
+          </a>
+          <a href="#source" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-sm font-medium transition-colors border border-white/10">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>
+            View Source
+          </a>
+        </div>
+      </div>
+
+      <!-- Hero terminal preview -->
+      <div class="reveal mt-12 rounded-xl border border-white/[0.06] bg-[#0a0e17] overflow-hidden shadow-2xl shadow-black/40">
+        <div class="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+          <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+          <div class="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+          <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
+          <span class="ml-3 text-[11px] text-gray-600 mono">terminal</span>
+        </div>
+        <div class="p-5 mono text-sm leading-relaxed">
+          <div class="text-gray-500">$ <span class="text-gray-300">uv run meddict aufnahme.wav</span></div>
+          <div class="text-gray-600 mt-2">Loading Whisper model 'small'...</div>
+          <div class="text-gray-600">Transcribing...</div>
+          <div class="text-gray-600">Transcription complete. Language: de (probability 99.2%)</div>
+          <div class="text-gray-600">Sending transcript to LLM (llama3.2)...</div>
+          <div class="mt-3 text-emerald-400">{</div>
+          <div class="text-emerald-400 pl-4">"patient_complaint": "Seit drei Tagen zunehmende Kopfschmerzen...",</div>
+          <div class="text-emerald-400 pl-4">"findings": "Blutdruck 145/90 mmHg, neurologisch unauffällig",</div>
+          <div class="text-emerald-400 pl-4">"diagnosis": "Spannungskopfschmerz, arterielle Hypertonie Grad I",</div>
+          <div class="text-emerald-400 pl-4">"next_steps": "24h-RR-Messung, Ibuprofen 400mg bei Bedarf"</div>
+          <div class="text-emerald-400">}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ PIPELINE ═══════════════════ -->
+  <section id="pipeline" class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">How It Works</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">Processing Pipeline</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-5">
+        <!-- Step 1 -->
+        <div class="reveal pipeline-connector">
+          <div class="card-glow rounded-2xl p-6 bg-[#0c1018] h-full">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/></svg>
+            </div>
+            <div class="text-xs font-medium text-blue-400/70 uppercase tracking-wider mb-1">Step 1</div>
+            <h3 class="text-white font-semibold mb-2">Audio Input</h3>
+            <p class="text-sm text-gray-500 leading-relaxed">WAV or MP3 file of German medical dictation passed as CLI argument.</p>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="reveal pipeline-connector" style="transition-delay: 0.1s">
+          <div class="card-glow rounded-2xl p-6 bg-[#0c1018] h-full">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>
+            </div>
+            <div class="text-xs font-medium text-purple-400/70 uppercase tracking-wider mb-1">Step 2</div>
+            <h3 class="text-white font-semibold mb-2">Transcription</h3>
+            <p class="text-sm text-gray-500 leading-relaxed">faster-whisper (CTranslate2) with German language, VAD filtering, beam search.</p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="reveal pipeline-connector" style="transition-delay: 0.2s">
+          <div class="card-glow rounded-2xl p-6 bg-[#0c1018] h-full">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg>
+            </div>
+            <div class="text-xs font-medium text-amber-400/70 uppercase tracking-wider mb-1">Step 3</div>
+            <h3 class="text-white font-semibold mb-2">LLM Extraction</h3>
+            <p class="text-sm text-gray-500 leading-relaxed">Structured prompt sent to Ollama, OpenAI, or any compatible API endpoint.</p>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="reveal" style="transition-delay: 0.3s">
+          <div class="card-glow rounded-2xl p-6 bg-[#0c1018] h-full border-emerald-500/20">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div class="text-xs font-medium text-emerald-400/70 uppercase tracking-wider mb-1">Output</div>
+            <h3 class="text-white font-semibold mb-2">Structured JSON</h3>
+            <p class="text-sm text-gray-500 leading-relaxed">Pydantic-validated ClinicalSummary with four standardized fields.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ INTERACTIVE DEMO ═══════════════════ -->
+  <section id="demo" class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">Try It Out</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">Interactive Demo</h2>
+        <p class="text-gray-500 mt-3 max-w-xl mx-auto">Paste a German medical transcript below, or use the example, and see the expected JSON output structure.</p>
+      </div>
+
+      <div class="reveal grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Input -->
+        <div class="rounded-2xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+              <span class="text-xs font-medium text-gray-500">Transcript Input</span>
+            </div>
+            <button onclick="loadExample()" class="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer border border-white/5">
+              Load Example
+            </button>
+          </div>
+          <textarea id="demo-input" class="w-full bg-transparent text-sm text-gray-300 p-5 leading-relaxed resize-none focus:outline-none placeholder-gray-700 mono" rows="12" placeholder="Paste a German medical dictation transcript here..."></textarea>
+        </div>
+
+        <!-- Output -->
+        <div class="rounded-2xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>
+              <span class="text-xs font-medium text-gray-500">JSON Output</span>
+            </div>
+            <button onclick="copyOutput()" id="copy-output-btn" class="text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer border border-white/5">
+              Copy
+            </button>
+          </div>
+          <pre id="demo-output" class="p-5 text-sm leading-relaxed mono min-h-[288px] text-gray-600">← Enter a transcript and click "Extract"</pre>
+        </div>
+      </div>
+
+      <div class="reveal flex justify-center mt-6">
+        <button onclick="runExtraction()" id="extract-btn" class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-all cursor-pointer shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 active:scale-[0.98]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+          Extract Clinical Summary
+        </button>
+      </div>
+      <p class="text-center text-xs text-gray-700 mt-3">Simulated extraction — demonstrates the output format. Actual extraction requires the running CLI.</p>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ OUTPUT SCHEMA ═══════════════════ -->
+  <section class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">Data Model</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">ClinicalSummary Schema</h2>
+      </div>
+
+      <div class="reveal grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-4">
+          <div class="card-glow rounded-2xl p-5 bg-[#0c1018]">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+              </div>
+              <div>
+                <code class="text-rose-400 text-sm font-medium">patient_complaint</code>
+                <p class="text-xs text-gray-500 mt-1">Chief complaint or reason for visit, in the patient's terms.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-glow rounded-2xl p-5 bg-[#0c1018]">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+              </div>
+              <div>
+                <code class="text-blue-400 text-sm font-medium">findings</code>
+                <p class="text-xs text-gray-500 mt-1">Clinical findings from examination or history.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-glow rounded-2xl p-5 bg-[#0c1018]">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75"/></svg>
+              </div>
+              <div>
+                <code class="text-amber-400 text-sm font-medium">diagnosis</code>
+                <p class="text-xs text-gray-500 mt-1">Working or confirmed diagnosis.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-glow rounded-2xl p-5 bg-[#0c1018]">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+              </div>
+              <div>
+                <code class="text-emerald-400 text-sm font-medium">next_steps</code>
+                <p class="text-xs text-gray-500 mt-1">Recommended next steps: treatment, referrals, follow-up.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- JSON preview -->
+        <div class="rounded-2xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+          <div class="flex items-center gap-2 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span class="text-xs text-gray-500 mono">ClinicalSummary</span>
+          </div>
+          <pre class="p-6 text-sm leading-loose"><code><span class="text-gray-600">{</span>
+  <span class="text-rose-400">"patient_complaint"</span><span class="text-gray-600">:</span> <span class="text-emerald-300">"Seit drei Tagen zunehmende
+    Kopfschmerzen, bifrontal, drückend,
+    keine Übelkeit"</span><span class="text-gray-600">,</span>
+
+  <span class="text-blue-400">"findings"</span><span class="text-gray-600">:</span> <span class="text-emerald-300">"Blutdruck 145/90 mmHg,
+    neurologisch unauffällig, kein
+    Meningismus, Visus normal"</span><span class="text-gray-600">,</span>
+
+  <span class="text-amber-400">"diagnosis"</span><span class="text-gray-600">:</span> <span class="text-emerald-300">"Spannungskopfschmerz,
+    arterielle Hypertonie Grad I"</span><span class="text-gray-600">,</span>
+
+  <span class="text-emerald-400">"next_steps"</span><span class="text-gray-600">:</span> <span class="text-emerald-300">"24h-Blutdruckmessung,
+    Ibuprofen 400mg bei Bedarf,
+    Kontrolle in 2 Wochen"</span>
+<span class="text-gray-600">}</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ SOURCE CODE BROWSER ═══════════════════ -->
+  <section id="source" class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">Implementation</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">Source Code</h2>
+        <p class="text-gray-500 mt-3 max-w-xl mx-auto">Clean, modular architecture — each file has a single responsibility.</p>
+      </div>
+
+      <div class="reveal rounded-2xl border border-white/[0.06] bg-[#0c1018] overflow-hidden shadow-2xl shadow-black/30">
+        <div class="flex flex-col md:flex-row min-h-[500px]">
+          <!-- Sidebar -->
+          <div class="md:w-60 shrink-0 border-b md:border-b-0 md:border-r border-white/[0.06] bg-white/[0.01]">
+            <div class="px-4 py-3 border-b border-white/[0.06]">
+              <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg>
+                <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Explorer</span>
+              </div>
+            </div>
+            <nav id="file-tree" class="py-2 flex md:flex-col overflow-x-auto md:overflow-x-visible">
+              <!-- populated by JS -->
+            </nav>
+          </div>
+
+          <!-- Code panel -->
+          <div class="flex-1 min-w-0 flex flex-col">
+            <!-- File header -->
+            <div class="flex items-center justify-between px-5 py-2.5 border-b border-white/[0.06] bg-white/[0.01] shrink-0">
+              <div class="flex items-center gap-2">
+                <span id="current-file-icon" class="text-sm"></span>
+                <span id="current-file-name" class="text-xs mono text-gray-400"></span>
+                <span id="current-file-lines" class="text-[10px] text-gray-700 mono"></span>
+              </div>
+              <button onclick="copyCurrentFile()" id="copy-file-btn" class="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors cursor-pointer border border-white/5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>
+                Copy
+              </button>
+            </div>
+
+            <!-- Code content -->
+            <div class="flex-1 overflow-auto">
+              <pre id="code-viewer" class="code-block py-3 text-[13px] leading-[1.6]"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project structure -->
+      <div class="reveal mt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">📦</div>
+          <div class="text-[10px] mono text-gray-500">pyproject.toml</div>
+          <div class="text-[10px] text-gray-700">deps + config</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">🏗️</div>
+          <div class="text-[10px] mono text-gray-500">models.py</div>
+          <div class="text-[10px] text-gray-700">schema</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">🎙️</div>
+          <div class="text-[10px] mono text-gray-500">transcriber.py</div>
+          <div class="text-[10px] text-gray-700">STT engine</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">🤖</div>
+          <div class="text-[10px] mono text-gray-500">extractor.py</div>
+          <div class="text-[10px] text-gray-700">LLM client</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">🚀</div>
+          <div class="text-[10px] mono text-gray-500">main.py</div>
+          <div class="text-[10px] text-gray-700">CLI entry</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">🐳</div>
+          <div class="text-[10px] mono text-gray-500">Dockerfile</div>
+          <div class="text-[10px] text-gray-700">container</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <div class="text-lg mb-1">📖</div>
+          <div class="text-[10px] mono text-gray-500">README.md</div>
+          <div class="text-[10px] text-gray-700">docs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ SETUP INSTRUCTIONS ═══════════════════ -->
+  <section id="setup" class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">Getting Started</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">Setup Instructions</h2>
+      </div>
+
+      <!-- Tab buttons -->
+      <div class="reveal flex justify-center gap-8 mb-10 border-b border-white/[0.06] pb-0">
+        <button onclick="switchSetupTab('local')" class="tab-btn active text-sm font-medium text-emerald-400 cursor-pointer" data-tab="local">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg>
+            Local (uv)
+          </span>
+        </button>
+        <button onclick="switchSetupTab('docker')" class="tab-btn text-sm font-medium text-gray-500 cursor-pointer" data-tab="docker">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25"/></svg>
+            Docker
+          </span>
+        </button>
+      </div>
+
+      <!-- LOCAL TAB -->
+      <div id="tab-local" class="reveal">
+        <!-- Prerequisites -->
+        <div class="mb-8">
+          <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold">1</span>
+            Prerequisites
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <div class="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                <span class="text-sm">🐍</span>
+              </div>
+              <div>
+                <div class="text-sm text-white font-medium">Python 3.11+</div>
+                <div class="text-[11px] text-gray-600">Runtime</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <span class="text-sm">⚡</span>
+              </div>
+              <div>
+                <div class="text-sm text-white font-medium">uv</div>
+                <a href="https://docs.astral.sh/uv/" target="_blank" class="text-[11px] text-emerald-600 hover:text-emerald-400">astral.sh/uv →</a>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <span class="text-sm">🦙</span>
+              </div>
+              <div>
+                <div class="text-sm text-white font-medium">Ollama</div>
+                <a href="https://ollama.com/" target="_blank" class="text-[11px] text-emerald-600 hover:text-emerald-400">ollama.com →</a>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <span class="text-sm">🎬</span>
+              </div>
+              <div>
+                <div class="text-sm text-white font-medium">ffmpeg</div>
+                <div class="text-[11px] text-gray-600">Audio decoding</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Install -->
+        <div class="mb-8">
+          <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold">2</span>
+            Install & Run
+          </h3>
+          <div class="space-y-3">
+            <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+                <span class="text-[11px] text-gray-600">Install dependencies</span>
+                <button onclick="copyCmd(this, 'uv sync')" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+              </div>
+              <div class="p-4 mono text-sm">
+                <span class="text-gray-600">$</span> <span class="text-gray-300">uv sync</span>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+                <span class="text-[11px] text-gray-600">Pull a local LLM</span>
+                <button onclick="copyCmd(this, 'ollama pull llama3.2')" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+              </div>
+              <div class="p-4 mono text-sm">
+                <span class="text-gray-600">$</span> <span class="text-gray-300">ollama pull llama3.2</span>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+                <span class="text-[11px] text-gray-600">Transcribe & extract</span>
+                <button onclick="copyCmd(this, 'uv run meddict recording.wav')" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+              </div>
+              <div class="p-4 mono text-sm">
+                <span class="text-gray-600">$</span> <span class="text-gray-300">uv run meddict recording.wav</span>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+                <span class="text-[11px] text-gray-600">Pipe clean JSON</span>
+                <button onclick="copyCmd(this, 'uv run meddict recording.wav 2>/dev/null | jq .diagnosis')" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+              </div>
+              <div class="p-4 mono text-sm">
+                <span class="text-gray-600">$</span> <span class="text-gray-300">uv run meddict recording.wav 2>/dev/null | jq .diagnosis</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLI Flags -->
+        <div>
+          <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold">3</span>
+            CLI Options
+          </h3>
+          <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-white/[0.06] text-left">
+                  <th class="px-5 py-3 text-[11px] text-gray-600 font-medium uppercase tracking-wider">Flag</th>
+                  <th class="px-5 py-3 text-[11px] text-gray-600 font-medium uppercase tracking-wider">Default</th>
+                  <th class="px-5 py-3 text-[11px] text-gray-600 font-medium uppercase tracking-wider">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-white/[0.03]">
+                  <td class="px-5 py-3 mono text-xs text-emerald-400">--model-size</td>
+                  <td class="px-5 py-3 mono text-xs text-gray-500">small</td>
+                  <td class="px-5 py-3 text-gray-500">Whisper model: tiny, base, small, medium, large-v3</td>
+                </tr>
+                <tr class="border-b border-white/[0.03]">
+                  <td class="px-5 py-3 mono text-xs text-emerald-400">--transcript-only</td>
+                  <td class="px-5 py-3 mono text-xs text-gray-500">false</td>
+                  <td class="px-5 py-3 text-gray-500">Skip LLM, output raw transcript</td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3 mono text-xs text-emerald-400">--llm-model</td>
+                  <td class="px-5 py-3 mono text-xs text-gray-500">llama3.2</td>
+                  <td class="px-5 py-3 text-gray-500">LLM model name (or set LLM_MODEL env)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCKER TAB -->
+      <div id="tab-docker" class="hidden">
+        <div class="mb-8">
+          <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold">1</span>
+            Build the Image
+          </h3>
+          <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+              <span class="text-[11px] text-gray-600">Build Docker image (includes Whisper model download)</span>
+              <button onclick="copyCmd(this, 'docker build -t meddict .')" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+            </div>
+            <div class="p-4 mono text-sm">
+              <span class="text-gray-600">$</span> <span class="text-gray-300">docker build -t meddict .</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold">2</span>
+            Run with Ollama (Local LLM)
+          </h3>
+          <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+              <span class="text-[11px] text-gray-600">Mount audio file, use host network for Ollama access</span>
+              <button onclick="copyCmd(this, `docker run --rm \\\n  --network host \\\n  -v ./recording.wav:/tmp/recording.wav \\\n  meddict /tmp/recording.wav`)" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+            </div>
+            <div class="p-4 mono text-sm leading-relaxed">
+              <span class="text-gray-600">$</span> <span class="text-gray-300">docker run --rm \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">--network host \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">-v ./recording.wav:/tmp/recording.wav \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">meddict /tmp/recording.wav</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold">3</span>
+            Run with OpenAI API
+          </h3>
+          <div class="rounded-xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+              <span class="text-[11px] text-gray-600">Pass API credentials as environment variables</span>
+              <button onclick="copyCmd(this, `docker run --rm \\\n  -e LLM_BASE_URL=&quot;https://api.openai.com/v1&quot; \\\n  -e LLM_API_KEY=&quot;sk-...&quot; \\\n  -e LLM_MODEL=&quot;gpt-4o-mini&quot; \\\n  -v ./recording.wav:/tmp/recording.wav \\\n  meddict /tmp/recording.wav`)" class="copy-cmd-btn text-[11px] px-2.5 py-1 rounded bg-white/5 text-gray-600 hover:text-gray-300 cursor-pointer transition-colors">Copy</button>
+            </div>
+            <div class="p-4 mono text-sm leading-relaxed">
+              <span class="text-gray-600">$</span> <span class="text-gray-300">docker run --rm \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">-e LLM_BASE_URL=<span class="text-emerald-400">"https://api.openai.com/v1"</span> \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">-e LLM_API_KEY=<span class="text-emerald-400">"sk-..."</span> \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">-e LLM_MODEL=<span class="text-emerald-400">"gpt-4o-mini"</span> \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">-v ./recording.wav:/tmp/recording.wav \</span>
+              <br>&nbsp;&nbsp;<span class="text-gray-300">meddict /tmp/recording.wav</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ CONFIGURATION ═══════════════════ -->
+  <section id="config" class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">Environment</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">Configuration</h2>
+        <p class="text-gray-500 mt-3 max-w-xl mx-auto">Swap LLM providers without changing code — just set environment variables.</p>
+      </div>
+
+      <div class="reveal rounded-2xl border border-white/[0.06] bg-[#0c1018] overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-white/[0.06] text-left">
+              <th class="px-6 py-4 text-[11px] text-gray-600 font-medium uppercase tracking-wider">Variable</th>
+              <th class="px-6 py-4 text-[11px] text-gray-600 font-medium uppercase tracking-wider">Default</th>
+              <th class="px-6 py-4 text-[11px] text-gray-600 font-medium uppercase tracking-wider hidden sm:table-cell">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors">
+              <td class="px-6 py-4">
+                <code class="text-emerald-400 text-xs bg-emerald-500/5 px-2 py-0.5 rounded">LLM_BASE_URL</code>
+              </td>
+              <td class="px-6 py-4 mono text-xs text-gray-500">http://localhost:11434/v1</td>
+              <td class="px-6 py-4 text-gray-500 hidden sm:table-cell">OpenAI-compatible API endpoint</td>
+            </tr>
+            <tr class="border-b border-white/[0.03] hover:bg-white/[0.01] transition-colors">
+              <td class="px-6 py-4">
+                <code class="text-emerald-400 text-xs bg-emerald-500/5 px-2 py-0.5 rounded">LLM_API_KEY</code>
+              </td>
+              <td class="px-6 py-4 mono text-xs text-gray-500">ollama</td>
+              <td class="px-6 py-4 text-gray-500 hidden sm:table-cell">API authentication key</td>
+            </tr>
+            <tr class="hover:bg-white/[0.01] transition-colors">
+              <td class="px-6 py-4">
+                <code class="text-emerald-400 text-xs bg-emerald-500/5 px-2 py-0.5 rounded">LLM_MODEL</code>
+              </td>
+              <td class="px-6 py-4 mono text-xs text-gray-500">llama3.2</td>
+              <td class="px-6 py-4 text-gray-500 hidden sm:table-cell">Model identifier for chat completions</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Provider examples -->
+      <div class="reveal grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div class="card-glow rounded-xl p-5 bg-[#0c1018]">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-sm">🦙</span>
+            <span class="text-white font-medium text-sm">Ollama</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">default</span>
+          </div>
+          <div class="mono text-[11px] text-gray-500 leading-relaxed space-y-1">
+            <div>BASE_URL=<span class="text-gray-400">localhost:11434/v1</span></div>
+            <div>API_KEY=<span class="text-gray-400">ollama</span></div>
+            <div>MODEL=<span class="text-gray-400">llama3.2</span></div>
+          </div>
+        </div>
+        <div class="card-glow rounded-xl p-5 bg-[#0c1018]">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-sm">🟢</span>
+            <span class="text-white font-medium text-sm">OpenAI</span>
+          </div>
+          <div class="mono text-[11px] text-gray-500 leading-relaxed space-y-1">
+            <div>BASE_URL=<span class="text-gray-400">api.openai.com/v1</span></div>
+            <div>API_KEY=<span class="text-gray-400">sk-...</span></div>
+            <div>MODEL=<span class="text-gray-400">gpt-4o-mini</span></div>
+          </div>
+        </div>
+        <div class="card-glow rounded-xl p-5 bg-[#0c1018]">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-sm">🔷</span>
+            <span class="text-white font-medium text-sm">vLLM / Custom</span>
+          </div>
+          <div class="mono text-[11px] text-gray-500 leading-relaxed space-y-1">
+            <div>BASE_URL=<span class="text-gray-400">your-server:8000/v1</span></div>
+            <div>API_KEY=<span class="text-gray-400">token</span></div>
+            <div>MODEL=<span class="text-gray-400">your-model</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-line max-w-6xl mx-auto"></div>
+
+  <!-- ═══════════════════ DESIGN DECISIONS ═══════════════════ -->
+  <section class="py-20">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="reveal text-center mb-14">
+        <p class="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-3">Why These Choices</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white">Design Decisions</h2>
+      </div>
+
+      <div class="reveal grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="card-glow rounded-2xl p-6 bg-[#0c1018]">
+          <div class="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+          </div>
+          <h3 class="text-white font-semibold text-sm mb-2">faster-whisper over openai-whisper</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">~4× faster on CPU via CTranslate2 quantization. Same Whisper model weights, dramatically better inference speed without GPU.</p>
+        </div>
+
+        <div class="card-glow rounded-2xl p-6 bg-[#0c1018]">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z"/></svg>
+          </div>
+          <h3 class="text-white font-semibold text-sm mb-2">Whisper <code class="text-blue-400">small</code> default</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Best accuracy/speed tradeoff for German medical terminology. Easily configurable to tiny (fast) or large-v3 (best quality) via CLI flag.</p>
+        </div>
+
+        <div class="card-glow rounded-2xl p-6 bg-[#0c1018]">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.07-9.07l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757"/></svg>
+          </div>
+          <h3 class="text-white font-semibold text-sm mb-2">OpenAI-compatible client</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Works with Ollama, vLLM, OpenAI, Azure — swap your LLM provider with environment variables alone. Zero code changes.</p>
+        </div>
+
+        <div class="card-glow rounded-2xl p-6 bg-[#0c1018]">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+          </div>
+          <h3 class="text-white font-semibold text-sm mb-2">Pydantic validation</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">LLM output is validated against the ClinicalSummary schema. Malformed or incomplete JSON fails fast with clear, actionable errors.</p>
+        </div>
+
+        <div class="card-glow rounded-2xl p-6 bg-[#0c1018]">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776"/></svg>
+          </div>
+          <h3 class="text-white font-semibold text-sm mb-2">stderr / stdout split</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Progress logs go to stderr, JSON result to stdout. Clean for Unix piping: <code class="text-gray-400 text-xs">meddict audio.wav | jq</code>.</p>
+        </div>
+
+        <div class="card-glow rounded-2xl p-6 bg-[#0c1018]">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25"/></svg>
+          </div>
+          <h3 class="text-white font-semibold text-sm mb-2">uv + Docker</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Fast dependency resolution with uv. Dockerfile pre-downloads the Whisper model for instant cold starts in production.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ FOOTER ═══════════════════ -->
+  <footer class="border-t border-white/[0.04] py-10">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center">
+          <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"/></svg>
+        </div>
+        <span class="text-sm text-gray-600">meddict — Clean code over feature creep</span>
+      </div>
+      <div class="text-xs text-gray-700">Python · faster-whisper · OpenAI SDK · Pydantic · Click · Docker</div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
+  <script>
+    // ─── Source files for code browser ───
+    const FILES = {
+      "pyproject.toml": {
+        icon: "📦",
+        label: "Project Config",
+        lang: "toml",
+        code: `[project]
+name = "meddict"
+version = "0.1.0"
+description = "German medical dictation transcriber and structured clinical summary extractor"
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper>=1.1.0",
+    "openai>=1.40.0",
+    "pydantic>=2.0.0",
+    "click>=8.1.0",
+]
+
+[project.scripts]
+meddict = "app.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"`
+      },
+
+      "app/models.py": {
+        icon: "🏗️",
+        label: "Data Schema",
+        lang: "python",
+        code: `"""Pydantic models for structured clinical output."""
+
+from pydantic import BaseModel, Field
+
+
+class ClinicalSummary(BaseModel):
+    """Structured clinical summary extracted from a medical dictation."""
+
+    patient_complaint: str = Field(
+        description="Chief complaint or reason for visit, in the patient's terms."
+    )
+    findings: str = Field(
+        description="Clinical findings from examination or history."
+    )
+    diagnosis: str = Field(
+        description="Working or confirmed diagnosis."
+    )
+    next_steps: str = Field(
+        description="Recommended next steps: treatment, referrals, follow-up."
+    )`
+      },
+
+      "app/transcriber.py": {
+        icon: "🎙️",
+        label: "STT Engine",
+        lang: "python",
+        code: `"""Audio transcription using faster-whisper (CTranslate2)."""
+
+import sys
+from pathlib import Path
+
+from faster_whisper import WhisperModel
+
+
+DEFAULT_MODEL_SIZE = "small"
+
+
+def transcribe(
+    audio_path: Path,
+    model_size: str = DEFAULT_MODEL_SIZE,
+) -> str:
+    """Transcribe a German audio file to text.
+
+    Args:
+        audio_path: Path to WAV or MP3 file.
+        model_size: Whisper model size (tiny, base, small, medium, large-v3).
+
+    Returns:
+        Full transcript as a single string.
+    """
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Audio file not found: {audio_path}")
+
+    print(f"Loading Whisper model '{model_size}'...", file=sys.stderr)
+    model = WhisperModel(model_size, device="cpu", compute_type="int8")
+
+    print("Transcribing...", file=sys.stderr)
+    segments, info = model.transcribe(
+        str(audio_path),
+        language="de",
+        beam_size=5,
+        vad_filter=True,
+    )
+
+    transcript_parts: list[str] = []
+    for segment in segments:
+        transcript_parts.append(segment.text.strip())
+
+    transcript = " ".join(transcript_parts)
+    print(
+        f"Transcription complete. Language: {info.language} "
+        f"(probability {info.language_probability:.1%})",
+        file=sys.stderr,
+    )
+    return transcript`
+      },
+
+      "app/extractor.py": {
+        icon: "🤖",
+        label: "LLM Client",
+        lang: "python",
+        code: `"""LLM-based clinical summary extraction from transcripts."""
+
+import json
+import re
+import sys
+
+from openai import OpenAI
+
+from app.models import ClinicalSummary
+
+
+SYSTEM_PROMPT = """\\
+You are a medical documentation assistant specializing in German clinical language.
+
+Given a transcript of a German medical dictation, extract a structured clinical summary.
+Respond with ONLY a JSON object (no markdown fences, no extra text) using these exact keys:
+
+{
+  "patient_complaint": "...",
+  "findings": "...",
+  "diagnosis": "...",
+  "next_steps": "..."
+}
+
+All values should be concise, in German, and clinically accurate.
+If a field cannot be determined from the transcript, use "Nicht angegeben".
+"""
+
+
+def _strip_markdown_fences(text: str) -> str:
+    """Remove \\\`\\\`\\\`json ... \\\`\\\`\\\` wrappers that some LLMs add."""
+    text = text.strip()
+    text = re.sub(r"^\\\`\\\`\\\`(?:json)?\\s*\\n?", "", text)
+    text = re.sub(r"\\n?\\\`\\\`\\\`\\s*$", "", text)
+    return text.strip()
+
+
+def extract_summary(
+    transcript: str,
+    base_url: str = "http://localhost:11434/v1",
+    api_key: str = "ollama",
+    model: str = "llama3.2",
+) -> ClinicalSummary:
+    """Send transcript to an OpenAI-compatible LLM and parse the response.
+
+    Args:
+        transcript: German medical dictation transcript.
+        base_url: LLM API base URL (default: local Ollama).
+        api_key: API key (use 'ollama' for local Ollama).
+        model: Model identifier.
+
+    Returns:
+        Validated ClinicalSummary.
+    """
+    client = OpenAI(base_url=base_url, api_key=api_key)
+
+    print(f"Sending transcript to LLM ({model})...", file=sys.stderr)
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": transcript},
+        ],
+        temperature=0.2,
+    )
+
+    raw = response.choices[0].message.content or ""
+    cleaned = _strip_markdown_fences(raw)
+
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"LLM returned invalid JSON:\\n{raw}"
+        ) from exc
+
+    return ClinicalSummary.model_validate(data)`
+      },
+
+      "app/main.py": {
+        icon: "🚀",
+        label: "CLI Entry",
+        lang: "python",
+        code: `"""CLI entry point for meddict."""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+import click
+
+from app.extractor import extract_summary
+from app.transcriber import transcribe
+
+
+@click.command()
+@click.argument("audio_file", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--model-size",
+    default="small",
+    help="Whisper model size (tiny, base, small, medium, large-v3).",
+    show_default=True,
+)
+@click.option(
+    "--transcript-only",
+    is_flag=True,
+    help="Output only the transcript, skip LLM extraction.",
+)
+@click.option(
+    "--llm-model",
+    default=lambda: os.environ.get("LLM_MODEL", "llama3.2"),
+    help="LLM model name. [env: LLM_MODEL]",
+    show_default="llama3.2",
+)
+def cli(
+    audio_file: Path,
+    model_size: str,
+    transcript_only: bool,
+    llm_model: str,
+) -> None:
+    """Transcribe a German medical dictation and extract a clinical summary."""
+    # Step 1: Transcribe audio
+    try:
+        transcript = transcribe(audio_file, model_size=model_size)
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(f"\\n--- Transcript ---\\n{transcript}\\n", err=True)
+
+    if transcript_only:
+        click.echo(transcript)
+        return
+
+    # Step 2: Extract structured summary via LLM
+    base_url = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
+    api_key = os.environ.get("LLM_API_KEY", "ollama")
+
+    try:
+        summary = extract_summary(
+            transcript,
+            base_url=base_url,
+            api_key=api_key,
+            model=llm_model,
+        )
+    except (ValueError, Exception) as exc:
+        click.echo(f"LLM extraction failed: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(summary.model_dump_json(indent=2))
+
+
+if __name__ == "__main__":
+    cli()`
+      },
+
+      "Dockerfile": {
+        icon: "🐳",
+        label: "Container",
+        lang: "dockerfile",
+        code: `FROM python:3.12-slim
+
+# System dependencies for faster-whisper (audio decoding)
+RUN apt-get update && \\
+    apt-get install -y --no-install-recommends ffmpeg && \\
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Install Python dependencies (cached layer)
+COPY pyproject.toml .
+RUN uv sync --no-dev --no-install-project
+
+# Copy application code
+COPY app/ app/
+
+# Pre-download the default Whisper model
+RUN uv run python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')"
+
+ENTRYPOINT ["uv", "run", "python", "-m", "app.main"]`
+      },
+
+      "README.md": {
+        icon: "📖",
+        label: "Documentation",
+        lang: "markdown",
+        code: `# meddict — German Medical Dictation → Structured JSON
+
+CLI tool that transcribes German medical audio and extracts a structured
+clinical summary using a local LLM.
+
+## Architecture
+
+\`\`\`
+Audio (WAV/MP3)
+  → faster-whisper (Whisper small, German, CPU)
+    → Transcript
+      → LLM (Ollama / OpenAI-compatible API)
+        → Structured JSON (ClinicalSummary)
+\`\`\`
+
+## Output Schema
+
+\`\`\`json
+{
+  "patient_complaint": "...",
+  "findings": "...",
+  "diagnosis": "...",
+  "next_steps": "..."
+}
+\`\`\`
+
+## Local Setup (uv)
+
+### Prerequisites
+- Python 3.11+
+- uv (https://docs.astral.sh/uv/)
+- Ollama (https://ollama.com/) or any OpenAI-compatible API
+- ffmpeg
+
+### Install & Run
+
+\`\`\`bash
+uv sync
+ollama pull llama3.2
+uv run meddict recording.wav
+\`\`\`
+
+## Docker Setup
+
+\`\`\`bash
+docker build -t meddict .
+docker run --rm --network host \\
+  -v ./recording.wav:/tmp/recording.wav \\
+  meddict /tmp/recording.wav
+\`\`\``
+      }
+    };
+
+    const FILE_ORDER = [
+      "pyproject.toml",
+      "app/models.py",
+      "app/transcriber.py",
+      "app/extractor.py",
+      "app/main.py",
+      "Dockerfile",
+      "README.md"
+    ];
+
+    let currentFile = FILE_ORDER[0];
+
+    // ─── Syntax Highlighting ───
+    function esc(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function highlightPython(code) {
+      let h = esc(code);
+      h = h.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '<span style="color:#86efac">$1</span>');
+      h = h.replace(/(#.*$)/gm, '<span style="color:#4b5563">$1</span>');
+      h = h.replace(/\b(from|import|def|class|return|if|else|elif|for|in|try|except|raise|as|with|not|and|or|True|False|None|is|lambda)\b/g, '<span style="color:#c084fc">$1</span>');
+      h = h.replace(/(@[\w.]+)/g, '<span style="color:#fbbf24">$1</span>');
+      h = h.replace(/\b(str|int|float|bool|list|dict|Path|BaseModel|Field)\b/g, '<span style="color:#67e8f9">$1</span>');
+      return h;
+    }
+
+    function highlightToml(code) {
+      let h = esc(code);
+      h = h.replace(/(#.*$)/gm, '<span style="color:#4b5563">$1</span>');
+      h = h.replace(/^(\[[\w.\-]+\])/gm, '<span style="color:#93c5fd;font-weight:600">$1</span>');
+      h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span style="color:#86efac">$1</span>');
+      h = h.replace(/\b(\w[\w-]*)\s*=/g, '<span style="color:#fbbf24">$1</span> =');
+      return h;
+    }
+
+    function highlightDockerfile(code) {
+      let h = esc(code);
+      h = h.replace(/(#.*$)/gm, '<span style="color:#4b5563">$1</span>');
+      h = h.replace(/^(FROM|RUN|COPY|WORKDIR|ENTRYPOINT|CMD|ENV|ARG|EXPOSE|LABEL)\b/gm, '<span style="color:#c084fc;font-weight:600">$1</span>');
+      h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span style="color:#86efac">$1</span>');
+      return h;
+    }
+
+    function highlightMarkdown(code) {
+      let h = esc(code);
+      h = h.replace(/^(#{1,6}\s.*)$/gm, '<span style="color:#93c5fd;font-weight:600">$1</span>');
+      h = h.replace(/(`[^`]+`)/g, '<span style="color:#86efac">$1</span>');
+      h = h.replace(/^(\s*-\s)/gm, '<span style="color:#fbbf24">$1</span>');
+      return h;
+    }
+
+    function highlight(lang, code) {
+      switch(lang) {
+        case 'python': return highlightPython(code);
+        case 'toml': return highlightToml(code);
+        case 'dockerfile': return highlightDockerfile(code);
+        case 'markdown': return highlightMarkdown(code);
+        default: return esc(code);
+      }
+    }
+
+    // ─── Code Browser ───
+    function showFile(name) {
+      currentFile = name;
+      const file = FILES[name];
+      const highlighted = highlight(file.lang, file.code);
+      const lines = highlighted.split('\n');
+      const lineCount = lines.length;
+
+      document.getElementById('current-file-name').textContent = name;
+      document.getElementById('current-file-icon').textContent = file.icon;
+      document.getElementById('current-file-lines').textContent = `${lineCount} lines`;
+
+      const html = lines.map(line => `<span class="code-line">${line}</span>`).join('\n');
+      const viewer = document.getElementById('code-viewer');
+      viewer.innerHTML = html;
+
+      document.querySelectorAll('#file-tree button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.file === name);
+      });
+    }
+
+    function buildFileTree() {
+      const tree = document.getElementById('file-tree');
+      FILE_ORDER.forEach(name => {
+        const f = FILES[name];
+        const btn = document.createElement('button');
+        btn.dataset.file = name;
+        btn.className = 'file-btn flex items-center gap-2.5 px-4 py-2 text-xs mono text-gray-500 hover:text-gray-300 cursor-pointer whitespace-nowrap text-left w-full';
+        btn.innerHTML = `<span class="text-sm shrink-0">${f.icon}</span><div class="min-w-0"><div class="truncate">${name.split('/').pop()}</div><div class="text-[10px] text-gray-700">${f.label}</div></div>`;
+        btn.addEventListener('click', () => showFile(name));
+        tree.appendChild(btn);
+      });
+    }
+
+    function copyCurrentFile() {
+      const code = FILES[currentFile].code;
+      navigator.clipboard.writeText(code);
+      const btn = document.getElementById('copy-file-btn');
+      btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Copied!';
+      btn.classList.add('text-emerald-400');
+      setTimeout(() => {
+        btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg> Copy';
+        btn.classList.remove('text-emerald-400');
+      }, 2000);
+    }
+
+    // ─── Setup Tabs ───
+    function switchSetupTab(tab) {
+      document.getElementById('tab-local').classList.toggle('hidden', tab !== 'local');
+      document.getElementById('tab-docker').classList.toggle('hidden', tab !== 'docker');
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('text-emerald-400', isActive);
+        btn.classList.toggle('text-gray-500', !isActive);
+      });
+    }
+
+    // ─── Copy command ───
+    function copyCmd(btn, text) {
+      navigator.clipboard.writeText(text.replace(/&quot;/g, '"'));
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('text-emerald-400');
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.classList.remove('text-emerald-400');
+      }, 1500);
+    }
+
+    // ─── Interactive Demo ───
+    const EXAMPLE_TRANSCRIPT = `Diktat vom 15. März 2024, Patient Herr Müller, geboren am 12.05.1968. Der Patient stellt sich heute vor mit seit drei Tagen zunehmenden Kopfschmerzen, bifrontal, drückend, keine Übelkeit, kein Erbrechen. Keine Sehstörungen. Bei der Untersuchung: Blutdruck 145/90 mmHg, Herzfrequenz 78, regelmäßig. Neurologisch unauffällig, kein Meningismus, Pupillen isokor, Lichtreaktion prompt. Visus normal. Diagnose: Spannungskopfschmerz bei arterieller Hypertonie Grad eins. Procedere: Wir veranlassen eine 24-Stunden-Blutdruckmessung. Bei Bedarf Ibuprofen 400 mg, maximal drei Mal täglich. Kontrolle in zwei Wochen mit Ergebnis der Langzeit-RR-Messung.`;
+
+    function loadExample() {
+      document.getElementById('demo-input').value = EXAMPLE_TRANSCRIPT;
+    }
+
+    function runExtraction() {
+      const input = document.getElementById('demo-input').value.trim();
+      const output = document.getElementById('demo-output');
+      const btn = document.getElementById('extract-btn');
+
+      if (!input) {
+        output.innerHTML = '<span class="text-rose-400">⚠ Please enter a transcript first.</span>';
+        return;
+      }
+
+      // Simulate processing
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg> Processing...';
+
+      // Step 1: Show transcript detection
+      setTimeout(() => {
+        output.innerHTML = '<span class="text-gray-500">⏳ Detecting language... German (99.2%)</span>';
+      }, 400);
+
+      // Step 2: Show extraction
+      setTimeout(() => {
+        output.innerHTML = '<span class="text-gray-500">⏳ Extracting clinical summary...</span>';
+      }, 1000);
+
+      // Step 3: simple keyword extraction simulation
+      setTimeout(() => {
+        const lowerInput = input.toLowerCase();
+
+        let complaint = 'Nicht angegeben';
+        let findings = 'Nicht angegeben';
+        let diagnosis = 'Nicht angegeben';
+        let nextSteps = 'Nicht angegeben';
+
+        // Extract complaint
+        const complaintPatterns = [
+          /(?:vorgestellt?|stellt sich.*?vor|klagt über|berichtet über|seit\s+\w+\s+\w+\s+(?:zunehmende[rn]?|bestehende[rn]?)?)\s*(.{10,80}?)(?:\.|,\s*(?:keine|kein|bei))/i,
+          /(?:kopfschmerzen|rückenschmerzen|bauchschmerzen|schmerzen|beschwerden).{0,60}/i
+        ];
+        for (const p of complaintPatterns) {
+          const m = input.match(p);
+          if (m) { complaint = m[0].replace(/^.*?(?=seit|kopf|rücken|bauch|schmerz)/i, '').trim().replace(/\.$/, ''); break; }
+        }
+        if (complaint === 'Nicht angegeben' && lowerInput.includes('kopfschmerzen')) {
+          complaint = 'Kopfschmerzen';
+          const m2 = input.match(/seit.{5,60}?(?=\.)/i);
+          if (m2) complaint = m2[0].trim();
+        }
+
+        // Extract findings
+        const findingsPatterns = [
+          /(?:untersuchung|befund|status)[:\s]*(.{10,150}?)(?:diagnose|procedere|therapie)/is,
+          /blutdruck\s+\d+\/\d+.{0,100}/i
+        ];
+        for (const p of findingsPatterns) {
+          const m = input.match(p);
+          if (m) {
+            findings = (m[1] || m[0]).trim().replace(/\.\s*$/, '');
+            break;
+          }
+        }
+
+        // Extract diagnosis
+        const diagMatch = input.match(/diagnose[:\s]*(.{5,120}?)(?:\.?\s*(?:procedere|therapie|wir veranlassen|empfehlung))/is);
+        if (diagMatch) {
+          diagnosis = diagMatch[1].trim().replace(/\.\s*$/, '');
+        } else {
+          const d2 = input.match(/diagnose[:\s]*(.{5,120}?)(?:\.|$)/i);
+          if (d2) diagnosis = d2[1].trim().replace(/\.\s*$/, '');
+        }
+
+        // Extract next steps
+        const nextMatch = input.match(/(?:procedere|therapie|empfehlung|wir veranlassen)[:\s]*(.{5,200}?)$/is);
+        if (nextMatch) {
+          nextSteps = nextMatch[1].trim().replace(/\.\s*$/, '');
+        }
+
+        const result = {
+          patient_complaint: complaint,
+          findings: findings,
+          diagnosis: diagnosis,
+          next_steps: nextSteps
+        };
+
+        const jsonStr = JSON.stringify(result, null, 2);
+        // Colorize output
+        let colored = esc(jsonStr);
+        colored = colored.replace(/"(patient_complaint|findings|diagnosis|next_steps)"/g, (m, key) => {
+          const colors = { patient_complaint: '#fb7185', findings: '#60a5fa', diagnosis: '#fbbf24', next_steps: '#34d399' };
+          return `<span style="color:${colors[key]}">"${key}"</span>`;
+        });
+        colored = colored.replace(/: "(.*?)"/g, ': <span style="color:#86efac">"$1"</span>');
+
+        output.innerHTML = colored;
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg> Extract Clinical Summary';
+      }, 1800);
+    }
+
+    function copyOutput() {
+      const raw = document.getElementById('demo-output').textContent;
+      navigator.clipboard.writeText(raw);
+      const btn = document.getElementById('copy-output-btn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('text-emerald-400');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('text-emerald-400'); }, 1500);
+    }
+
+    // ─── Scroll-based reveals ───
+    function initReveals() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    }
+
+    // ─── Active nav link tracking ───
+    function initNavTracking() {
+      const sections = document.querySelectorAll('section[id]');
+      const navLinks = document.querySelectorAll('.nav-link');
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            navLinks.forEach(link => {
+              link.classList.toggle('active-nav', link.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { threshold: 0.3 });
+
+      sections.forEach(s => observer.observe(s));
+    }
+
+    // ─── Navbar background on scroll ───
+    function initNavbar() {
+      const nav = document.getElementById('navbar');
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 20) {
+          nav.style.background = 'rgba(6,9,15,0.9)';
+          nav.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+        } else {
+          nav.style.background = 'rgba(6,9,15,0.6)';
+          nav.style.borderBottom = 'none';
+        }
+      }, { passive: true });
+    }
+
+    // ─── Init ───
+    buildFileTree();
+    showFile(FILE_ORDER[0]);
+    initReveals();
+    initNavTracking();
+    initNavbar();
+  </script>
+</body>
+</html>
