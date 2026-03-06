@@ -1,0 +1,37 @@
+[project]
+name = "medical-transcriber"
+version = "1.0.0"
+description = "Transcribe German medical dictations and extract structured clinical data using Whisper + LLM."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+# ---------------------------------------------------------------------------
+# Dependencies — install with:  uv pip install -e .
+# ---------------------------------------------------------------------------
+dependencies = [
+    # UI framework
+    "streamlit>=1.38.0",
+
+    # Speech-to-Text (local Whisper model)
+    "faster-whisper>=1.0.0",
+
+    # LLM client (OpenAI-compatible — works with OpenAI, Ollama, vLLM, etc.)
+    "openai>=1.40.0",
+]
+
+# ---------------------------------------------------------------------------
+# Optional: dev dependencies (linting, formatting)
+# ---------------------------------------------------------------------------
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "black",
+]
+
+# ---------------------------------------------------------------------------
+# Build system (required by PEP 621)
+# ---------------------------------------------------------------------------
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
