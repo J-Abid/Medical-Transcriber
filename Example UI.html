@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Transcriber Project Generator</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #111111;
+      --panel-2: #171717;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f5f5f5;
+      --muted: #a3a3a3;
+      --accent: #ff7a00;
+      --accent-2: #ff9d3d;
+      --success: #16a34a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255, 122, 0, 0.16), transparent 25%),
+        radial-gradient(circle at 80% 0%, rgba(255, 122, 0, 0.12), transparent 28%),
+        linear-gradient(180deg, #070707 0%, #0b0b0b 50%, #0e0e0e 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+    }
+
+    .glass {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .glow {
+      box-shadow: 0 0 0 1px rgba(255,122,0,0.15), 0 10px 40px rgba(255,122,0,0.1);
+    }
+
+    .file-item.active {
+      background: linear-gradient(90deg, rgba(255,122,0,0.18), rgba(255,122,0,0.06));
+      border-color: rgba(255,122,0,0.35);
+      color: white;
+    }
+
+    .file-item:hover {
+      transform: translateX(2px);
+      border-color: rgba(255,122,0,0.25);
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .code-wrap {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
+        #0b0b0b;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(40px);
+      opacity: 0.22;
+      animation: drift 10s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .blob:nth-child(1) { animation-delay: 0s; }
+    .blob:nth-child(2) { animation-delay: 2s; }
+    .blob:nth-child(3) { animation-delay: 4s; }
+
+    @keyframes drift {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-18px) scale(1.05); }
+    }
+
+    .pulse-border {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pulse-border::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(120deg, transparent, rgba(255,122,0,0.55), transparent);
+      -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { transform: translateX(-30%); }
+      100% { transform: translateX(30%); }
+    }
+
+    .badge {
+      border: 1px solid rgba(255,122,0,0.2);
+      background: rgba(255,122,0,0.08);
+    }
+
+    .fade-up {
+      animation: fadeUp 0.6s ease forwards;
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    @keyframes fadeUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="relative min-h-screen">
+    <div class="blob bg-orange-500/30 w-64 h-64 top-10 left-10"></div>
+    <div class="blob bg-amber-400/20 w-72 h-72 top-40 right-10"></div>
+    <div class="blob bg-orange-700/20 w-80 h-80 bottom-10 left-1/3"></div>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 py-8 md:px-6 lg:px-8">
+      <section class="glass glow pulse-border rounded-3xl p-6 md:p-8 mb-8 fade-up" style="animation-delay: 0.05s;">
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div class="max-w-3xl">
+            <div class="inline-flex items-center gap-2 badge rounded-full px-3 py-1 text-sm text-orange-200 mb-4">
+              <span>🩺</span>
+              <span>German Medical Dictation Project Builder</span>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-black tracking-tight leading-none">
+              Medical <span class="text-orange-400">Transcriber</span>
+            </h1>
+            <p class="mt-4 text-neutral-300 text-base md:text-lg leading-relaxed">
+              A polished single-page generator that contains the full requested Streamlit project:
+              STT with <span class="text-orange-300">faster-whisper</span>, structured LLM extraction with the
+              <span class="text-orange-300">OpenAI Python client</span>, Docker support, uv-based dependency management,
+              and a vibrant README.
+            </p>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-full lg:min-w-[420px]">
+            <div class="glass rounded-2xl p-4 text-center">
+              <div class="text-2xl font-bold text-orange-400" id="fileCount">8</div>
+              <div class="text-xs text-neutral-400">Files</div>
+            </div>
+            <div class="glass rounded-2xl p-4 text-center">
+              <div class="text-2xl font-bold text-orange-400">de</div>
+              <div class="text-xs text-neutral-400">German STT</div>
+            </div>
+            <div class="glass rounded-2xl p-4 text-center">
+              <div class="text-2xl font-bold text-orange-400">JSON</div>
+              <div class="text-xs text-neutral-400">Strict Output</div>
+            </div>
+            <div class="glass rounded-2xl p-4 text-center">
+              <div class="text-2xl font-bold text-orange-400">uv</div>
+              <div class="text-xs text-neutral-400">Dependency Flow</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6">
+        <aside class="glass rounded-3xl p-4 fade-up" style="animation-delay: 0.12s;">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-semibold">Project Files</h2>
+              <p class="text-sm text-neutral-400">Browse, preview, copy, and download.</p>
+            </div>
+            <button id="downloadSelectedBtn" class="rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-semibold px-4 py-2 transition">
+              Download
+            </button>
+          </div>
+
+          <div class="glass rounded-2xl p-3 mb-4">
+            <div class="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-2">Structure</div>
+            <pre class="text-sm text-neutral-300 overflow-x-auto">medical_transcriber/
+├── app.py
+├── audio_processor.py
+├── llm_extractor.py
+├── config.py
+├── Dockerfile
+├── pyproject.toml
+├── .gitignore
+└── README.md</pre>
+          </div>
+
+          <div id="fileList" class="space-y-2"></div>
+        </aside>
+
+        <section class="space-y-6 fade-up" style="animation-delay: 0.18s;">
+          <div class="glass rounded-3xl p-4 md:p-5">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div>
+                <div class="text-xs uppercase tracking-[0.2em] text-neutral-500">Active File</div>
+                <h3 id="activeFilename" class="text-2xl font-bold text-orange-400 mt-1">app.py</h3>
+                <p id="activeDescription" class="text-sm text-neutral-400 mt-1"></p>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <button id="copyBtn" class="rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 px-4 py-2 text-orange-200 transition">Copy Code</button>
+                <button id="downloadBtn" class="rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-semibold px-4 py-2 transition">Download File</button>
+              </div>
+            </div>
+            <div class="code-wrap rounded-2xl overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-white/6 bg-white/3">
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-red-400"></span>
+                  <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
+                  <span class="w-3 h-3 rounded-full bg-green-400"></span>
+                </div>
+                <div class="text-xs text-neutral-500">Generated project source</div>
+              </div>
+              <div class="max-h-[68vh] overflow-auto p-5 md:p-6">
+                <pre id="codeViewer" class="text-sm md:text-[13px] leading-6 text-neutral-200"></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="glass rounded-2xl p-5">
+              <div class="text-orange-400 text-2xl mb-2">🎙️</div>
+              <h4 class="font-semibold mb-2">Local STT</h4>
+              <p class="text-sm text-neutral-400">Uses faster-whisper with German language forcing for audio transcription.</p>
+            </div>
+            <div class="glass rounded-2xl p-5">
+              <div class="text-orange-400 text-2xl mb-2">🧠</div>
+              <h4 class="font-semibold mb-2">LLM JSON Extraction</h4>
+              <p class="text-sm text-neutral-400">Prompts an LLM to return strict structured clinical JSON fields.</p>
+            </div>
+            <div class="glass rounded-2xl p-5">
+              <div class="text-orange-400 text-2xl mb-2">🐳</div>
+              <h4 class="font-semibold mb-2">Docker + uv</h4>
+              <p class="text-sm text-neutral-400">Includes a lightweight container setup and dependency workflow via uv.</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const files = {
+      "app.py": {
+        description: "Main Streamlit UI with dark orange-and-black styling, audio upload, transcription, and JSON output display.",
+        content: `"""
+Main Streamlit application.
+This file builds the user interface and connects the full workflow:
+1. Upload audio -> 2. Transcribe audio -> 3. Extract structured JSON -> 4. Display results
+"""
+
+from __future__ import annotations
+
+import json
+import tempfile
+from pathlib import Path
+
+import streamlit as st
+
+from audio_processor import GermanMedicalTranscriber
+from llm_extractor import extract_clinical_json
+
+
+# This function injects a custom dark theme so the app looks sleek and professional.
+def inject_custom_css() -> None:
+    """Add custom CSS for a dark orange-and-black medical dashboard look."""
+    st.markdown(
+        """
+        <style>
+            .stApp {
+                background: linear-gradient(180deg, #050505 0%, #0b0b0b 50%, #101010 100%);
+                color: #f5f5f5;
+            }
+            .block-container {
+                max-width: 1100px;
+                padding-top: 2rem;
+                padding-bottom: 2rem;
+            }
+            h1, h2, h3 {
+                color: #ff8c1a !important;
+            }
+            .hero-card,
+            .result-card,
+            .stAlert,
+            div[data-testid="stFileUploader"] section,
+            div[data-testid="stExpander"] {
+                background: rgba(22, 22, 22, 0.9) !important;
+                border: 1px solid rgba(255, 140, 26, 0.25) !important;
+                border-radius: 18px !important;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+            }
+            .metric-pill {
+                padding: 0.75rem 1rem;
+                border-radius: 14px;
+                background: rgba(255, 140, 26, 0.08);
+                border: 1px solid rgba(255, 140, 26, 0.18);
+            }
+            .json-box {
+                background: #0a0a0a;
+                border: 1px solid rgba(255, 140, 26, 0.2);
+                border-radius: 16px;
+                padding: 1rem;
+            }
+            .stButton button {
+                background: linear-gradient(135deg, #ff8c1a, #ff6a00) !important;
+                color: black !important;
+                border: none !important;
+                border-radius: 12px !important;
+                font-weight: 700 !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# This helper saves the uploaded audio to a temporary file so the transcription model can read it.
+def save_uploaded_file(uploaded_file) -> Path:
+    """Save an uploaded file to a temporary path and return that path."""
+    suffix = Path(uploaded_file.name).suffix
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+        tmp_file.write(uploaded_file.getbuffer())
+        return Path(tmp_file.name)
+
+
+# Main application entry point.
+def main() -> None:
+    """Render the Streamlit interface and run the transcription pipeline."""
+    st.set_page_config(
+        page_title="Medical Transcriber",
+        page_icon="🩺",
+        layout="wide",
+    )
+
+    inject_custom_css()
+
+    st.markdown(
+        """
+        <div class="hero-card" style="padding: 1.6rem; margin-bottom: 1.25rem;">
+            <h1 style="margin-bottom: 0.35rem;">🩺 German Medical Dictation Transcriber</h1>
+            <p style="margin: 0; color: #d4d4d4;">
+                Upload a WAV or MP3 file, create a local German transcription with faster-whisper,
+                and extract structured clinical JSON using an LLM.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("<div class='metric-pill'>🎙️ Local STT with faster-whisper</div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='metric-pill'>🧠 Strict JSON extraction via LLM</div>", unsafe_allow_html=True)
+    with col3:
+        st.markdown("<div class='metric-pill'>🇩🇪 Forced German language transcription</div>", unsafe_allow_html=True)
+
+    st.write("")
+    uploaded_file = st.file_uploader(
+        "Upload a German medical dictation",
+        type=["wav", "mp3"],
+        help="Only WAV and MP3 files are supported.",
+    )
+
+    if uploaded_file is None:
+        st.info("Upload an audio file to start the workflow.")
+        return
+
+    if st.button("Start Transcription & Extraction"):
+        audio_path = save_uploaded_file(uploaded_file)
+
+        try:
+            # Step 1: Run local speech-to-text.
+            with st.spinner("Loading local Whisper model and transcribing audio..."):
+                transcriber = GermanMedicalTranscriber()
+                transcription = transcriber.transcribe(audio_path)
+
+            st.subheader("Intermediate Transcription")
+            st.markdown('<div class="result-card" style="padding: 1rem;">', unsafe_allow_html=True)
+            st.write(transcription)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Step 2: Run LLM extraction to create structured JSON.
+            with st.spinner("Sending transcription to the LLM for structured extraction..."):
+                structured_output = extract_clinical_json(transcription)
+
+            st.subheader("Structured Clinical JSON")
+            st.markdown('<div class="json-box">', unsafe_allow_html=True)
+            st.json(structured_output)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            st.download_button(
+                label="Download JSON Result",
+                data=json.dumps(structured_output, ensure_ascii=False, indent=2),
+                file_name="clinical_output.json",
+                mime="application/json",
+            )
+
+        except Exception as error:
+            st.error(f"Something went wrong: {error}")
+
+
+if __name__ == "__main__":
+    main()
+`
+      },
+      "audio_processor.py": {
+        description: "Loads the local faster-whisper model and transcribes WAV/MP3 input with language forced to German.",
+        content: `"""
+Speech-to-text helper.
+This file handles the local Whisper transcription workflow for German medical audio.
+Workflow:
+1. Load Model -> 2. Read Audio -> 3. Transcribe -> 4. Return Text
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from faster_whisper import WhisperModel
+
+from config import WHISPER_COMPUTE_TYPE, WHISPER_DEVICE, WHISPER_MODEL_SIZE
+
+
+class GermanMedicalTranscriber:
+    """Small helper class that loads a local Whisper model and transcribes German audio."""
+
+    def __init__(self, model_size: str = WHISPER_MODEL_SIZE) -> None:
+        """
+        Create a transcription helper.
+
+        We load the model once when the class is created so later calls are faster.
+        """
+        self.model_size = model_size
+        self.model = WhisperModel(
+            self.model_size,
+            device=WHISPER_DEVICE,
+            compute_type=WHISPER_COMPUTE_TYPE,
+        )
+
+    def transcribe(self, audio_path: str | Path) -> str:
+        """
+        Transcribe an audio file and return plain text.
+
+        Workflow:
+        1. Load Model -> already done in __init__
+        2. Read Audio -> faster-whisper reads the file path directly
+        3. Transcribe -> force language to German
+        4. Return Text -> combine all segments into one string
+        """
+        audio_path = str(audio_path)
+
+        segments, info = self.model.transcribe(
+            audio_path,
+            language="de",
+            vad_filter=True,
+            beam_size=5,
+            condition_on_previous_text=True,
+        )
+
+        full_text_parts = []
+        for segment in segments:
+            full_text_parts.append(segment.text.strip())
+
+        return " ".join(part for part in full_text_parts if part).strip()
+`
+      },
+      "llm_extractor.py": {
+        description: "Calls an LLM using the OpenAI client, requests strict raw JSON, and validates the structured response.",
+        content: `"""
+LLM extraction helper.
+This file sends the transcription text to a language model and asks for strict clinical JSON.
+Workflow:
+1. Receive Text -> 2. Construct Prompt -> 3. Call LLM -> 4. Parse JSON -> 5. Return Output
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Dict
+
+from openai import OpenAI
+
+from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME
+
+
+def _build_prompt(transcribed_text: str) -> str:
+    """Create a simple prompt that forces the model to return only the required JSON."""
+    return f"""
+You are a careful medical assistant.
+Read the following German medical dictation and extract the information into strict raw JSON.
+Return JSON only. Do not include markdown. Do not include explanations.
+
+Required JSON schema:
+{{
+  "patient_complaint": "string",
+  "findings": "string",
+  "diagnosis": "string",
+  "next_steps": "string"
+}}
+
+German medical dictation:
+{transcribed_text}
+""".strip()
+
+
+def _get_client() -> OpenAI:
+    """Create an OpenAI-compatible client so the code works with OpenAI or local servers."""
+    client_kwargs = {"api_key": LLM_API_KEY}
+    if LLM_BASE_URL:
+        client_kwargs["base_url"] = LLM_BASE_URL
+    return OpenAI(**client_kwargs)
+
+
+def extract_clinical_json(transcribed_text: str) -> Dict[str, Any]:
+    """
+    Send text to the LLM and return validated JSON.
+
+    Workflow:
+    1. Receive Text
+    2. Construct Prompt
+    3. Call LLM
+    4. Parse JSON
+    5. Return Output
+    """
+    client = _get_client()
+    prompt = _build_prompt(transcribed_text)
+
+    response = client.chat.completions.create(
+        model=LLM_MODEL_NAME,
+        temperature=0,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": "You extract structured clinical information and must return strict JSON only.",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+    )
+
+    raw_content = response.choices[0].message.content
+    parsed = json.loads(raw_content)
+
+    required_keys = [
+        "patient_complaint",
+        "findings",
+        "diagnosis",
+        "next_steps",
+    ]
+
+    for key in required_keys:
+        parsed.setdefault(key, "")
+
+    return {
+        "patient_complaint": parsed["patient_complaint"],
+        "findings": parsed["findings"],
+        "diagnosis": parsed["diagnosis"],
+        "next_steps": parsed["next_steps"],
+    }
+`
+      },
+      "config.py": {
+        description: "Central configuration hub for Whisper and LLM settings, all explained with simple comments.",
+        content: `"""
+Central configuration hub.
+This file keeps the main settings in one easy-to-find place.
+If you want to change model sizes, API settings, or runtime behavior,
+this is the first file to check.
+"""
+
+from __future__ import annotations
+
+import os
+
+
+# Whisper / speech-to-text settings.
+# This controls which local model is loaded for transcription.
+WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "small")
+
+# Runtime options for faster-whisper.
+# Use CPU by default so the app works on more systems.
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
+WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+
+
+# LLM settings.
+# These values let the app work with OpenAI or an OpenAI-compatible local server.
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "changeme")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
+`
+      },
+      "Dockerfile": {
+        description: "Lightweight Python container that installs uv, syncs dependencies, exposes port 8501, and launches Streamlit.",
+        content: `# Lightweight Python base image.
+FROM python:3.11-slim
+
+# Prevent Python from buffering logs and writing .pyc files.
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set the working directory inside the container.
+WORKDIR /app
+
+# Install small system dependencies and uv.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ffmpeg \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv
+
+# Copy dependency file first to use Docker layer caching.
+COPY pyproject.toml ./
+
+# Install Python dependencies using uv.
+RUN uv pip install --system .
+
+# Copy the rest of the application files.
+COPY . .
+
+# Expose Streamlit's default port.
+EXPOSE 8501
+
+# Start the Streamlit application.
+CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+`
+      },
+      "pyproject.toml": {
+        description: "uv-ready dependency definition using standard pyproject metadata and clear package requirements.",
+        content: `[project]
+name = "medical-transcriber"
+version = "0.1.0"
+description = "Streamlit app for German medical dictation transcription and structured JSON extraction"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.39.0",
+    "faster-whisper>=1.0.3",
+    "openai>=1.51.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+`
+      },
+      ".gitignore": {
+        description: "Standard ignore file for Python, Streamlit, local environments, secrets, and downloaded media/models.",
+        content: `# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+
+# IDE / editor files
+.vscode/
+.idea/
+.DS_Store
+
+# Downloaded audio and model files
+models/
+audio/
+uploads/
+*.wav
+*.mp3
+`
+      },
+      "README.md": {
+        description: "Colorful GitHub README with badges, setup instructions for uv and Docker, and a simple project overview.",
+        content: `# 🩺 Medical Transcriber
+
+<div align="center">
+
+![Python](https://img.shields.io/badge/Python-3.11+-orange?style=for-the-badge&logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dark%20UI-black?style=for-the-badge&logo=streamlit&logoColor=ff7a00)
+![Whisper](https://img.shields.io/badge/faster--whisper-Local%20STT-ff8c1a?style=for-the-badge)
+![LLM](https://img.shields.io/badge/OpenAI%20Client-JSON%20Extraction-111111?style=for-the-badge&logo=openai&logoColor=ff8c1a)
+![Docker](https://img.shields.io/badge/Docker-Ready-ff6a00?style=for-the-badge&logo=docker&logoColor=white)
+![uv](https://img.shields.io/badge/uv-Fast%20Python%20Deps-black?style=for-the-badge)
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=24&pause=1000&color=FF8C1A&center=true&vCenter=true&width=900&lines=German+medical+audio+to+text;Structured+clinical+JSON+with+an+LLM;Simple%2C+clean%2C+easy-to-read+codebase" alt="Typing animation" />
+
+</div>
+
+---
+
+## ✨ Overview
+
+This project is a clean and simple **Streamlit application** for:
+
+- 🎙️ transcribing **German medical dictations** from WAV/MP3 files
+- 🧠 extracting **structured clinical data** using an LLM
+- 📦 keeping the project easy to understand with simple comments and clear workflow steps
+
+The code is intentionally organized so anyone can open the files and quickly understand what is happening.
+
+---
+
+## 🚀 Features
+
+- **Local speech-to-text** using `faster-whisper`
+- **German language forced** during transcription (`language="de"`)
+- **Strict JSON extraction** with the OpenAI Python client
+- **OpenAI-compatible setup** for OpenAI, Ollama proxies, vLLM, or other local servers
+- **Dark professional UI** in Streamlit with an orange + black theme
+- **Docker support** for fast setup and deployment
+- **uv-based dependency management**
+
+---
+
+## 📁 Project Structure
+
+```text
+medical_transcriber/
+├── app.py                 # Main Streamlit UI entry point
+├── audio_processor.py     # Handles Whisper STT transcription
+├── llm_extractor.py       # Handles LLM prompt and JSON extraction
+├── config.py              # Configuration settings (Model paths, API keys)
+├── Dockerfile             # Docker instructions
+├── pyproject.toml         # uv dependencies
+├── .gitignore             # Standard Python/Streamlit ignore file
+└── README.md              # Project documentation
+```
+
+---
+
+## ⚙️ Local Setup with uv
+
+### 1. Clone the project
+
+```bash
+git clone <your-repo-url>
+cd medical_transcriber
+```
+
+### 2. Create a virtual environment
+
+```bash
+uv venv
+```
+
+### 3. Activate the virtual environment
+
+**macOS / Linux**
+
+```bash
+source .venv/bin/activate
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### 4. Install dependencies
+
+```bash
+uv pip install -e .
+```
+
+### 5. Set environment variables
+
+```bash
+export LLM_API_KEY="your_api_key_here"
+export LLM_MODEL_NAME="gpt-4o-mini"
+export LLM_BASE_URL=""
+```
+
+Example for a local OpenAI-compatible server:
+
+```bash
+export LLM_API_KEY="dummy"
+export LLM_BASE_URL="http://localhost:11434/v1"
+export LLM_MODEL_NAME="your-local-model"
+```
+
+### 6. Run the Streamlit app
+
+```bash
+streamlit run app.py
+```
+
+---
+
+## 🐳 Docker Setup
+
+### 1. Build the image
+
+```bash
+docker build -t medical-transcriber .
+```
+
+### 2. Run the container
+
+```bash
+docker run \
+  -p 8501:8501 \
+  -e LLM_API_KEY=your_api_key_here \
+  -e LLM_MODEL_NAME=gpt-4o-mini \
+  medical-transcriber
+```
+
+### 3. Open the app
+
+Open your browser and go to:
+
+```text
+http://localhost:8501
+```
+
+---
+
+## 🧠 Workflow
+
+### Speech-to-Text
+
+1. Load the local Whisper model
+2. Read the uploaded audio file
+3. Force transcription language to German
+4. Return the transcribed text
+
+### LLM Extraction
+
+1. Receive the transcription text
+2. Construct the extraction prompt
+3. Send the prompt to the LLM
+4. Parse strict JSON output
+5. Return the structured result
+
+---
+
+## 🔐 Environment Variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `WHISPER_MODEL_SIZE` | Whisper model size | `small` |
+| `WHISPER_DEVICE` | Device for inference | `cpu` |
+| `WHISPER_COMPUTE_TYPE` | Compute type for faster-whisper | `int8` |
+| `LLM_MODEL_NAME` | LLM model name | `gpt-4o-mini` |
+| `LLM_API_KEY` | API key for OpenAI-compatible client | `changeme` |
+| `LLM_BASE_URL` | Optional OpenAI-compatible server URL | `` |
+
+---
+
+## 🎨 UI Style
+
+The app uses a **dark mode theme** with:
+
+- ⚫ black background
+- 🟧 orange highlights
+- 💼 clean medical dashboard styling
+- 📋 readable result sections for transcription and JSON output
+
+---
+
+## 🧩 Notes
+
+- `faster-whisper` is a practical local STT option for German dictation workflows.
+- The LLM output is requested in **strict JSON only**.
+- For production systems, you may want to add:
+  - stronger validation
+  - patient safety review steps
+  - audit logging
+  - authentication and access control
+
+---
+
+## 🌟 Summary
+
+This project gives you a simple, readable starting point for a medical dictation workflow:
+
+**Audio → Transcription → Structured Clinical JSON**
+
+If you want, you can later extend it with:
+
+- batch processing
+- PDF export
+- EMR integration
+- local LLM hosting
+- model caching and performance tuning
+
+---
+
+<div align="center">
+Made with 🧡 for clean workflows, readable code, and practical AI tooling.
+</div>
+`
+      }
+    };
+
+    const fileNames = Object.keys(files);
+    const fileList = document.getElementById('fileList');
+    const codeViewer = document.getElementById('codeViewer');
+    const activeFilename = document.getElementById('activeFilename');
+    const activeDescription = document.getElementById('activeDescription');
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const fileCount = document.getElementById('fileCount');
+
+    fileCount.textContent = fileNames.length;
+
+    let currentFile = 'app.py';
+
+    function renderFileList() {
+      fileList.innerHTML = '';
+      fileNames.forEach((name, index) => {
+        const button = document.createElement('button');
+        button.className = `file-item w-full text-left rounded-2xl border border-white/8 bg-white/2 px-4 py-3 transition duration-200 ${name === currentFile ? 'active' : ''}`;
+        button.style.animation = `fadeUp 0.45s ease forwards ${index * 0.04}s`;
+        button.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold text-sm">${name}</div>
+              <div class="text-xs text-neutral-400 mt-1">${files[name].description}</div>
+            </div>
+            <div class="text-orange-400 text-lg">›</div>
+          </div>
+        `;
+        button.addEventListener('click', () => {
+          currentFile = name;
+          updateViewer();
+          renderFileList();
+        });
+        fileList.appendChild(button);
+      });
+    }
+
+    function updateViewer() {
+      activeFilename.textContent = currentFile;
+      activeDescription.textContent = files[currentFile].description;
+      codeViewer.textContent = files[currentFile].content;
+    }
+
+    async function copyCurrentFile() {
+      try {
+        await navigator.clipboard.writeText(files[currentFile].content);
+        const original = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('bg-green-500/20', 'text-green-200', 'border-green-500/30');
+        setTimeout(() => {
+          copyBtn.textContent = original;
+          copyBtn.classList.remove('bg-green-500/20', 'text-green-200', 'border-green-500/30');
+        }, 1400);
+      } catch (error) {
+        alert('Copy failed. Please copy manually from the code panel.');
+      }
+    }
+
+    function downloadFile(name) {
+      const blob = new Blob([files[name].content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    copyBtn.addEventListener('click', copyCurrentFile);
+    downloadBtn.addEventListener('click', () => downloadFile(currentFile));
+    downloadSelectedBtn.addEventListener('click', () => downloadFile(currentFile));
+
+    renderFileList();
+    updateViewer();
+  </script>
+</body>
+</html>
